@@ -349,4 +349,4 @@ func charsetReader(charset string, input io.Reader) (io.Reader, error) {
 	}
 }
 
-const invalidRangeMsg = fmt.Errorf("Invalid byte range provided")
+const invalidRangeMsg = "Invalid byte range provided"
