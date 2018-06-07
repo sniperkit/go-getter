@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/hashicorp/go-safetemp"
 )
 
 // HttpGetter is a Getter implementation that will download from an HTTP
@@ -129,8 +131,14 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 			rangeErr)
 	}
 
-	// Create new Request here because if it is a range request, we need to set
-	// Range headers on the request object.
+	// First request here (preReq), is going to be used to determine whether we
+	// can make a ranged request. Second one, (req) is used for the actual
+	// download
+	preReq, err := http.NewRequest("HEAD", u.String(), nil)
+	if err != nil {
+		return err
+	}
+
 	req, err := http.NewRequest("HEAD", u.String(), nil)
 	if err != nil {
 		return err
@@ -141,8 +149,7 @@ func (g *HttpGetter) GetFile(dst string, u *url.URL) error {
 		// We first make a HEAD request so we can check if the server supports
 		// range queries. If the server/URL doesn't support HEAD requests,
 		// we just fall back to GET.
-
-		resp, err := g.Client.Do(req)
+		resp, err := g.Client.Do(preReq)
 		if err == nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 			// If the HEAD request succeeded, then attempt to set the range
 			// query if we can.
@@ -283,12 +290,11 @@ func (g *HttpGetter) parseMeta(r io.Reader) (string, error) {
 // (nil, non-nil) - error occured when parsing or validating the byte range
 // (non-nil, nil) - byte range was successfully parsed, and the range is
 // returned as an array of strings in the following format:
-// example non-nil return val "vals":
-// []string{5555, 66666}      // first url example above
-// []string{5555}             // second url example above
+// example of a non-nil return value:
+// []string{"5555", "66666"}      // first url example above
+// []string{"5555", ""}             // second url example above
 func getByteRange(u *url.URL) ([]string, error) {
-	q := u.Query()
-	byteRange := q.Get("ranged_request_bytes")
+	byteRange := u.Query().Get("ranged_request_bytes")
 	if byteRange == "" {
 		return nil, nil
 	}
@@ -302,16 +308,16 @@ func getByteRange(u *url.URL) ([]string, error) {
 	}
 	start, err := strconv.ParseInt(vals[0], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("%s; could not convert start byte string to an integer",
-			invalidRangeMsg)
+		return nil, fmt.Errorf("%s; could not convert start byte string to "+
+			"an integer: original error: %s", invalidRangeMsg, err)
 	}
 	// If you leave endBytes blank, read to end of file.
 	if vals[1] != "" {
 		// otherwise make sure "finish" value is a number
 		finish, err := strconv.ParseInt(vals[1], 10, 64)
 		if err != nil {
-			return nil, fmt.Errorf("%s; could not convert finish byte string to an integer",
-				invalidRangeMsg)
+			return nil, fmt.Errorf("%s; could not convert finish byte string "+
+				"to an integer; original error: %s", invalidRangeMsg, err)
 		}
 		// need finish to be bigger than start val
 		if finish <= start {

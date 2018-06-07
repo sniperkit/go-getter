@@ -163,17 +163,17 @@ func TestHttpGetter_file(t *testing.T) {
 	assertContents(t, dst, "Hello\n")
 }
 
-var rangeReqs = []struct {
-	Input    string
-	Expected string
-}{
-	{"0-", "Hello\n"},
-	{"0-2", "Hel"},
-	{"2-3", "ll"},
-	{"3-", "lo\n"},
-}
-
 func TestHttpGetter_ranged_request(t *testing.T) {
+	var rangeReqs = []struct {
+		Input    string
+		Expected string
+	}{
+		{"0-", "Hello\n"},
+		{"0-2", "Hel"},
+		{"2-3", "ll"},
+		{"3-", "lo\n"},
+	}
+
 	ln := testHttpServer(t)
 	defer ln.Close()
 
@@ -251,24 +251,24 @@ func TestHttpGetter_authNetrc(t *testing.T) {
 	}
 }
 
-var cases = []struct {
-	Input     string // example: "5555-66666"
-	Expected  []string
-	ExpectErr bool
-}{
-	// both start and end bytes given
-	{"http://my/file.iso?ranged_request_bytes=555-666", []string{"555", "666"}, false},
-	// no end given
-	{"http://my/file.iso?ranged_request_bytes=555-", []string{"555", ""}, false},
-	// end greater than start
-	{"http://my/file.iso?ranged_request_bytes=666-555", nil, true},
-	// unparseable into ints
-	{"http://my/file.iso?ranged_request_bytes=66a6-5*55", nil, true},
-	// no ranged request made
-	{"http://my/file.iso", nil, false},
-}
-
 func TestHttpGetter_GetByteRange(t *testing.T) {
+	var cases = []struct {
+		Input     string // example: "5555-66666"
+		Expected  []string
+		ExpectErr bool
+	}{
+		// both start and end bytes given
+		{"http://my/file.iso?ranged_request_bytes=555-666", []string{"555", "666"}, false},
+		// no end given
+		{"http://my/file.iso?ranged_request_bytes=555-", []string{"555", ""}, false},
+		// end greater than start
+		{"http://my/file.iso?ranged_request_bytes=666-555", nil, true},
+		// unparseable into ints
+		{"http://my/file.iso?ranged_request_bytes=66a6-5*55", nil, true},
+		// no ranged request made
+		{"http://my/file.iso", nil, false},
+	}
+
 	for _, testCase := range cases {
 		src := testCase.Input
 		u, err := urlhelper.Parse(src)
